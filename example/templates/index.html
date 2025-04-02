@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rover Control Panel</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        /* Video Container - 16:9 Aspect Ratio */
+        .video-container {
+            position: relative;
+            padding-bottom: 56.25%; /* 16:9 */
+            height: 0;
+            overflow: hidden;
+            margin-bottom: 20px;
+            background: #000;
+            border-radius: 5px;
+        }
+        .video-container video {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        /* Existing Rover Control Styles */
+        .output-panel {
+            height: 500px;
+            overflow-y: auto;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        .command-btn {
+            margin: 2px;
+            min-width: 80px;
+        }
+        .task-select {
+            margin-right: 10px;
+        }
+        .output-entry {
+            margin-bottom: 15px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 15px;
+        }
+        .output-entry:last-child {
+            border-bottom: none;
+        }
+        .rover-status {
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 10px;
+            margin-top: 10px;
+            background-color: #fff;
+        }
+        .status-item {
+            margin-bottom: 5px;
+            display: flex;
+        }
+        .status-item strong {
+            font-weight: 500;
+            min-width: 100px;
+            color: #495057;
+        }
+        .sensor-info {
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 10px;
+            margin-top: 10px;
+            background-color: #f8f9fa;
+        }
+        .sensor-item {
+            margin-bottom: 3px;
+            font-size: 0.9em;
+            display: flex;
+        }
+        .sensor-item strong {
+            font-weight: 500;
+            min-width: 120px;
+            color: #495057;
+        }
+        .battery-indicator {
+            height: 20px;
+            border-radius: 3px;
+            margin-top: 3px;
+        }
+        .coordinates-badge {
+            font-family: monospace;
+            background-color: #e9ecef;
+            padding: 2px 5px;
+            border-radius: 3px;
+        }
+        .timestamp {
+            font-size: 0.75rem;
+            color: #6c757d;
+            text-align: right;
+        }
+        .alert-message {
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 10px;
+        }
+        .alert-success {
+            background-color: #d1e7dd;
+            border-left: 4px solid #198754;
+        }
+        .alert-error {
+            background-color: #f8d7da;
+            border-left: 4px solid #dc3545;
+        }
+        .alert-warning {
+            background-color: #fff3cd;
+            border-left: 4px solid #ffc107;
+        }
+        .alert-info {
+            background-color: #cfe2ff;
+            border-left: 4px solid #0d6efd;
+        }
+        .rover-card {
+            margin-bottom: 10px;
+        }
+        .rover-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .status-badge {
+            font-size: 0.75rem;
+            padding: 3px 6px;
+        }
+        .command-group {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 5px;
+        }
+        .command-group-vertical {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+        }
+        .nav-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 5px;
+            margin: 10px 0;
+        }
+        pre {
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 5px;
+            border: 1px solid #dee2e6;
+            font-size: 0.85em;
+            margin-top: 5px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-4">
+        <h1 class="text-center mb-4">Rover Control Panel</h1>
+
+        <!-- Video Player Section at the top -->
+        <div class="video-container">
+            {% if video_file %}
+            <video autoplay muted loop>
+                <source src="{{ url_for('static', filename='videos/' + video_file) }}" type="video/mp4">
+                Your browser does not support HTML5 video.
+            </video>
+            {% else %}
+            <div class="d-flex justify-content-center align-items-center h-100 text-white">
+                <div class="text-center">
+                    <i class="bi bi-camera-video-off fs-1"></i>
+                    <p class="mt-2">No rover video available</p>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Main Content Area -->
+        <div class="row">
+            <!-- Output Panel (Left Column) -->
+            <div class="col-md-8">
+                <div class="output-panel" id="outputPanel">
+                    <div class="alert-message alert-info">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <i class="bi bi-info-circle"></i> <strong>Welcome</strong>
+                                <div>Welcome to Rover Control Panel. Start a session to begin.</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Control Panel (Right Column) -->
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header bg-primary text-white">
+                        <h5><i class="bi bi-gear"></i> Session Control</h5>
+                    </div>
+                    <div class="card-body">
+                        <button id="startSession" class="btn btn-primary w-100">
+                            <i class="bi bi-play-circle"></i> Start Session
+                        </button>
+                        <div id="sessionInfo" class="mt-2 d-none">
+                            <p><strong>Session ID:</strong> <span id="sessionId" class="text-muted small"></span></p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card mt-3">
+                    <div class="card-header bg-secondary text-white">
+                        <h5><i class="bi bi-robot"></i> Rover Selection</h5>
+                    </div>
+                    <div class="card-body">
+                        <select id="roverSelect" class="form-select">
+                            <option value="Rover-1">Rover-1</option>
+                            <option value="Rover-2">Rover-2</option>
+                            <option value="Rover-3">Rover-3</option>
+                            <option value="Rover-4">Rover-4</option>
+                            <option value="Rover-5">Rover-5</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="card mt-3">
+                    <div class="card-header bg-success text-white">
+                        <h5><i class="bi bi-speedometer2"></i> Rover Commands</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="command-group">
+                            <button class="btn btn-outline-primary command-btn" onclick="sendCommand('status')">
+                                <i class="bi bi-info-circle"></i> Status
+                            </button>
+                            <button class="btn btn-outline-primary command-btn" onclick="sendCommand('sensor-data')">
+                                <i class="bi bi-thermometer"></i> Sensors
+                            </button>
+                            <button class="btn btn-outline-primary command-btn" onclick="sendCommand('battery')">
+                                <i class="bi bi-battery-charging"></i> Battery
+                            </button>
+                            <button class="btn btn-outline-primary command-btn" onclick="sendCommand('coordinates')">
+                                <i class="bi bi-geo-alt"></i> Location
+                            </button>
+                            <button class="btn btn-outline-danger command-btn" onclick="sendCommand('reset')">
+                                <i class="bi bi-arrow-counterclockwise"></i> Reset
+                            </button>
+                        </div>
+                        
+                        <div class="nav-buttons">
+                            <button class="btn btn-warning command-btn" onclick="moveRover('forward')">
+                                <i class="bi bi-arrow-up"></i> Forward
+                            </button>
+                        </div>
+                        <div class="nav-buttons">
+                            <button class="btn btn-warning command-btn" onclick="moveRover('left')">
+                                <i class="bi bi-arrow-left"></i> Left
+                            </button>
+                            <button class="btn btn-warning command-btn" onclick="moveRover('backward')">
+                                <i class="bi bi-arrow-down"></i> Back
+                            </button>
+                            <button class="btn btn-warning command-btn" onclick="moveRover('right')">
+                                <i class="bi bi-arrow-right"></i> Right
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card mt-3">
+                    <div class="card-header bg-info text-white">
+                        <h5><i class="bi bi-list-task"></i> Task Assignment</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="input-group">
+                            <select id="taskSelect" class="form-select task-select">
+                                <option value="Soil Analysis">Soil Analysis</option>
+                                <option value="Irrigation">Irrigation</option>
+                                <option value="Mapping">Mapping</option>
+                                <option value="Sample Collection">Sample Collection</option>
+                                <option value="Crop Monitoring">Crop Monitoring</option>
+                                <option value="Weeding">Weeding</option>
+                            </select>
+                            <button class="btn btn-success" onclick="assignTask()">
+                                <i class="bi bi-send-check"></i> Assign
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let currentSessionId = null;
+        let commandHistory = [];
+
+        // Start a new session
+        document.getElementById('startSession').addEventListener('click', async () => {
+            try {
+                const response = await fetch('/api/session/start', {
+                    method: 'POST'
+                });
+                
+                const data = await response.json();
+                if (response.ok) {
+                    currentSessionId = data.session_id;
+                    document.getElementById('sessionId').textContent = currentSessionId;
+                    document.getElementById('sessionInfo').classList.remove('d-none');
+                    
+                    addToOutput({
+                        type: 'success',
+                        title: 'Session Started',
+                        message: `Session ID: ${currentSessionId}`,
+                        timestamp: new Date()
+                    });
+                    
+                    getFleetStatus();
+                } else {
+                    addToOutput({
+                        type: 'error',
+                        title: 'Session Error',
+                        message: data.message || 'Failed to start session',
+                        timestamp: new Date()
+                    });
+                }
+            } catch (error) {
+                addToOutput({
+                    type: 'error',
+                    title: 'Network Error',
+                    message: 'Failed to connect to server',
+                    timestamp: new Date()
+                });
+            }
+        });
+
+        // Get fleet status
+        async function getFleetStatus() {
+            if (!currentSessionId) {
+                addToOutput({
+                    type: 'warning',
+                    title: 'Session Required',
+                    message: 'Please start a session first',
+                    timestamp: new Date()
+                });
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/fleet/status?session_id=${currentSessionId}`);
+                const data = await response.json();
+                
+                if (response.ok) {
+                    addToOutput({
+                        type: 'info',
+                        title: 'Fleet Status',
+                        data: data,
+                        timestamp: new Date()
+                    });
+                } else {
+                    addToOutput({
+                        type: 'error',
+                        title: 'Fleet Status Error',
+                        message: data.message || 'Failed to get fleet status',
+                        timestamp: new Date()
+                    });
+                }
+            } catch (error) {
+                addToOutput({
+                    type: 'error',
+                    title: 'Network Error',
+                    message: 'Failed to fetch fleet status',
+                    timestamp: new Date()
+                });
+            }
+        }
+
+        // Format fleet status display
+        function formatFleetStatus(data) {
+            let html = '';
+            for (const roverName in data) {
+                const rover = data[roverName];
+                const batteryLevel = rover.battery || 0;
+                const batteryClass = batteryLevel > 70 ? 'bg-success' : 
+                                   batteryLevel > 30 ? 'bg-warning' : 'bg-danger';
+                
+                const statusClass = {
+                    'active': 'bg-success',
+                    'idle': 'bg-secondary',
+                    'charging': 'bg-warning',
+                    'error': 'bg-danger'
+                }[rover.status?.toLowerCase()] || 'bg-info';
+                
+                html += `
+                    <div class="rover-card">
+                        <div class="rover-header">
+                            <h6 class="mb-0">${roverName}</h6>
+                            <span class="badge ${statusClass} status-badge">${rover.status || 'unknown'}</span>
+                        </div>
+                        <div class="progress mb-2 battery-indicator">
+                            <div class="progress-bar ${batteryClass}" 
+                                 style="width: ${batteryLevel}%"
+                                 title="Battery: ${batteryLevel}%">
+                            </div>
+                        </div>
+                        <div class="status-item">
+                            <strong>Location:</strong>
+                            <span class="coordinates-badge">[${rover.coordinates?.[0] || 0}, ${rover.coordinates?.[1] || 0}]</span>
+                        </div>
+                        <div class="status-item">
+                            <strong>Task:</strong>
+                            <span>${rover.task || 'None'}</span>
+                        </div>
+                        <button class="btn btn-sm btn-outline-info mt-2 w-100" 
+                                onclick="getRoverDetails('${roverName}')">
+                            <i class="bi bi-chevron-down"></i> Details
+                        </button>
+                    </div>
+                `;
+            }
+            return html;
+        }
+
+        // Get detailed rover information
+        async function getRoverDetails(roverName) {
+            if (!currentSessionId) {
+                addToOutput({
+                    type: 'warning',
+                    title: 'Session Required',
+                    message: 'Please start a session first',
+                    timestamp: new Date()
+                });
+                return;
+            }
+            
+            try {
+                const responses = await Promise.all([
+                    fetch(`/api/rover/${roverName}/status?session_id=${currentSessionId}`),
+                    fetch(`/api/rover/${roverName}/sensor-data?session_id=${currentSessionId}`),
+                    fetch(`/api/rover/${roverName}/battery?session_id=${currentSessionId}`),
+                    fetch(`/api/rover/${roverName}/coordinates?session_id=${currentSessionId}`)
+                ]);
+                
+                const [statusRes, sensorRes, batteryRes, coordRes] = responses;
+                const statusData = await statusRes.json();
+                const sensorData = await sensorRes.json();
+                const batteryData = await batteryRes.json();
+                const coordData = await coordRes.json();
+                
+                addToOutput({
+                    type: 'info',
+                    title: `${roverName} Detailed Status`,
+                    data: {
+                        status: statusData,
+                        sensors: sensorData,
+                        battery: batteryData,
+                        coordinates: coordData
+                    },
+                    timestamp: new Date()
+                });
+            } catch (error) {
+                addToOutput({
+                    type: 'error',
+                    title: 'Error',
+                    message: `Failed to get details for ${roverName}`,
+                    timestamp: new Date()
+                });
+            }
+        }
+
+        // Format detailed rover information
+        function formatRoverDetails(data) {
+            return `
+                <div class="rover-status">
+                    <h6>Status Information</h6>
+                    <pre>${JSON.stringify(data.status, null, 2)}</pre>
+                    
+                    <h6 class="mt-3">Sensor Data</h6>
+                    <div class="sensor-info">
+                        ${Object.entries(data.sensors).map(([key, value]) => `
+                            <div class="sensor-item">
+                                <strong>${key.replace(/_/g, ' ')}:</strong>
+                                <span>${value}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                    
+                    <h6 class="mt-3">Battery</h6>
+                    <pre>${JSON.stringify(data.battery, null, 2)}</pre>
+                    
+                    <h6 class="mt-3">Coordinates</h6>
+                    <pre>${JSON.stringify(data.coordinates, null, 2)}</pre>
+                </div>
+            `;
+        }
+
+        // Send generic command
+        async function sendCommand(command) {
+            if (!currentSessionId) {
+                addToOutput({
+                    type: 'warning',
+                    title: 'Session Required',
+                    message: 'Please start a session first',
+                    timestamp: new Date()
+                });
+                return;
+            }
+            
+            const roverName = document.getElementById('roverSelect').value;
+            let endpoint = '';
+            let method = 'GET';
+            
+            switch(command) {
+                case 'status':
+                    endpoint = `rover/${roverName}/status`;
+                    break;
+                case 'sensor-data':
+                    endpoint = `rover/${roverName}/sensor-data`;
+                    break;
+                case 'battery':
+                    endpoint = `rover/${roverName}/battery`;
+                    break;
+                case 'coordinates':
+                    endpoint = `rover/${roverName}/coordinates`;
+                    break;
+                case 'reset':
+                    endpoint = `rover/${roverName}/reset`;
+                    method = 'POST';
+                    break;
+            }
+            
+            try {
+                const response = await fetch(`/api/${endpoint}?session_id=${currentSessionId}`, {
+                    method: method
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    addToOutput({
+                        type: 'info',
+                        title: `${roverName} ${command.replace('-', ' ')}`,
+                        data: data,
+                        timestamp: new Date()
+                    });
+                    
+                    // Refresh fleet status after important commands
+                    if (['reset'].includes(command)) {
+                        setTimeout(getFleetStatus, 1000);
+                    }
+                } else {
+                    addToOutput({
+                        type: 'error',
+                        title: 'Command Failed',
+                        message: data.message || `Failed to execute ${command}`,
+                        timestamp: new Date()
+                    });
+                }
+            } catch (error) {
+                addToOutput({
+                    type: 'error',
+                    title: 'Network Error',
+                    message: `Failed to send ${command} command`,
+                    timestamp: new Date()
+                });
+            }
+        }
+
+        // Move rover
+        async function moveRover(direction) {
+            if (!currentSessionId) {
+                addToOutput({
+                    type: 'warning',
+                    title: 'Session Required',
+                    message: 'Please start a session first',
+                    timestamp: new Date()
+                });
+                return;
+            }
+            
+            const roverName = document.getElementById('roverSelect').value;
+            const directions = {
+                'forward': '↑ Forward',
+                'backward': '↓ Backward',
+                'left': '← Left',
+                'right': '→ Right'
+            };
+            
+            try {
+                const response = await fetch(`/api/rover/${roverName}/move?session_id=${currentSessionId}&direction=${direction}`, {
+                    method: 'POST'
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    addToOutput({
+                        type: 'success',
+                        title: 'Movement Command',
+                        message: `${roverName} moving ${direction}`,
+                        data: data,
+                        timestamp: new Date()
+                    });
+                    
+                    // Refresh coordinates after movement
+                    setTimeout(() => {
+                        sendCommand('coordinates');
+                        getFleetStatus();
+                    }, 500);
+                } else {
+                    addToOutput({
+                        type: 'error',
+                        title: 'Movement Failed',
+                        message: data.message || `Failed to move ${direction}`,
+                        timestamp: new Date()
+                    });
+                }
+            } catch (error) {
+                addToOutput({
+                    type: 'error',
+                    title: 'Network Error',
+                    message: `Failed to send move command`,
+                    timestamp: new Date()
+                });
+            }
+        }
+
+        // Assign task to rover
+        async function assignTask() {
+            if (!currentSessionId) {
+                addToOutput({
+                    type: 'warning',
+                    title: 'Session Required',
+                    message: 'Please start a session first',
+                    timestamp: new Date()
+                });
+                return;
+            }
+            
+            const roverName = document.getElementById('roverSelect').value;
+            const task = document.getElementById('taskSelect').value;
+            
+            try {
+                const response = await fetch(`/api/rover/${roverName}/task?session_id=${currentSessionId}&task=${encodeURIComponent(task)}`, {
+                    method: 'POST'
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    addToOutput({
+                        type: 'success',
+                        title: 'Task Assigned',
+                        message: `Assigned "${task}" to ${roverName}`,
+                        data: data,
+                        timestamp: new Date()
+                    });
+                    
+                    // Refresh fleet status after task assignment
+                    setTimeout(getFleetStatus, 1000);
+                } else {
+                    addToOutput({
+                        type: 'error',
+                        title: 'Task Assignment Failed',
+                        message: data.message || `Failed to assign task "${task}"`,
+                        timestamp: new Date()
+                    });
+                }
+            } catch (error) {
+                addToOutput({
+                    type: 'error',
+                    title: 'Network Error',
+                    message: 'Failed to assign task',
+                    timestamp: new Date()
+                });
+            }
+        }
+
+        // Add output to the panel
+        function addToOutput(message) {
+            const outputPanel = document.getElementById('outputPanel');
+            const entry = document.createElement('div');
+            entry.className = 'output-entry';
+            
+            // Create timestamp element
+            const timestamp = document.createElement('div');
+            timestamp.className = 'timestamp';
+            timestamp.textContent = formatTime(message.timestamp);
+            
+            // Create message container
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `alert-message alert-${message.type}`;
+            
+            // Create title
+            const title = document.createElement('strong');
+            title.textContent = message.title;
+            
+            // Add content based on message type
+            if (message.message) {
+                const msg = document.createElement('div');
+                msg.textContent = message.message;
+                alertDiv.appendChild(title);
+                alertDiv.appendChild(msg);
+            }
+            
+            if (message.data) {
+                alertDiv.appendChild(title);
+                
+                if (message.title === 'Fleet Status') {
+                    const fleetDiv = document.createElement('div');
+                    fleetDiv.innerHTML = formatFleetStatus(message.data);
+                    alertDiv.appendChild(fleetDiv);
+                } 
+                else if (message.title.includes('Detailed Status')) {
+                    const detailsDiv = document.createElement('div');
+                    detailsDiv.innerHTML = formatRoverDetails(message.data);
+                    alertDiv.appendChild(detailsDiv);
+                }
+                else {
+                    const pre = document.createElement('pre');
+                    pre.textContent = JSON.stringify(message.data, null, 2);
+                    alertDiv.appendChild(pre);
+                }
+            }
+            
+            entry.appendChild(alertDiv);
+            entry.appendChild(timestamp);
+            outputPanel.appendChild(entry);
+            outputPanel.scrollTop = outputPanel.scrollHeight;
+            
+            // Add to command history
+            commandHistory.push(message);
+        }
+
+        // Format time for display
+        function formatTime(date) {
+            if (!(date instanceof Date)) {
+                date = new Date(date);
+            }
+            return date.toLocaleTimeString();
+        }
+    </script>
+</body>
+</html>
